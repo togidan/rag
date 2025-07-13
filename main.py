@@ -17,7 +17,7 @@ openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Milvus configuration
 MILVUS_URI = "https://in03-eac7c2985174613.serverless.gcp-us-west1.cloud.zilliz.com"
 MILVUS_TOKEN = "97b4cbdb86fc8864a00950a47f22f69566f241573781f5c9294a7ffd6e28eba82806d5777eb7320c1c43a45e1a608cf8034301d6"
-COLLECTION_NAME = "promp_engineer_test"
+COLLECTION_NAME = "prompt_engineer_test"
 DIMENSION = 1536  # text-embedding-3-small dimension
 
 # Initialize Milvus client
