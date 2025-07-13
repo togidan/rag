@@ -627,6 +627,9 @@
                 <button class="tab-button" onclick="switchTab('file')">📁 File Upload</button>
             </div>
             
+            <!-- Modal Message Area -->
+            <div id="modalMessage" style="display: none; padding: 15px; margin: 0 20px; border-radius: 10px; font-size: 14px;"></div>
+            
             <div class="modal-body">
                 <!-- Text Input Tab -->
                 <div class="tab-content active" id="textTab">
@@ -738,6 +741,8 @@
         // Modal functionality
         function openUploadModal() {
             document.getElementById('uploadModal').classList.add('active');
+            // Clear any previous messages
+            hideModalMessage();
         }
 
         function closeUploadModal() {
@@ -746,6 +751,28 @@
             document.getElementById('documentTitle').value = '';
             document.getElementById('documentText').value = '';
             document.getElementById('fileInput').value = '';
+            // Clear modal message
+            hideModalMessage();
+        }
+
+        function showModalMessage(message, isError = false) {
+            const messageDiv = document.getElementById('modalMessage');
+            messageDiv.style.display = 'block';
+            messageDiv.textContent = message;
+            
+            if (isError) {
+                messageDiv.style.backgroundColor = '#f8d7da';
+                messageDiv.style.color = '#721c24';
+                messageDiv.style.border = '1px solid #f5c6cb';
+            } else {
+                messageDiv.style.backgroundColor = '#d4edda';
+                messageDiv.style.color = '#155724';
+                messageDiv.style.border = '1px solid #c3e6cb';
+            }
+        }
+
+        function hideModalMessage() {
+            document.getElementById('modalMessage').style.display = 'none';
         }
 
         function switchTab(tabName) {
@@ -773,14 +800,12 @@
             const text = document.getElementById('documentText').value.trim();
             
             if (!text) {
-                addMessage('Please enter some text to upload.', false, true);
+                showModalMessage('Please enter some text to upload.', true);
                 return;
             }
 
             const documentTitle = title || 'Untitled Document';
-            closeUploadModal();
-            addLoadingMessage();
-
+            
             try {
                 const response = await fetch('/upload-text', {
                     method: 'POST',
@@ -794,21 +819,23 @@
                 });
 
                 const data = await response.json();
-                removeLoadingMessage();
 
                 if (data.error) {
-                    addMessage(`Upload error: ${data.error}`, false, true);
+                    showModalMessage(`Upload error: ${data.error}`, true);
                 } else {
-                    addMessage(`Successfully uploaded "${documentTitle}" to the knowledge base.`);
+                    showModalMessage(`Successfully uploaded "${documentTitle}" to the knowledge base.`);
                     // Refresh documents list if settings panel is open
                     const panel = document.getElementById('settingsPanel');
                     if (!panel.classList.contains('hidden')) {
                         loadDocuments();
                     }
+                    // Auto-close modal after 2 seconds on success
+                    setTimeout(() => {
+                        closeUploadModal();
+                    }, 2000);
                 }
             } catch (error) {
-                removeLoadingMessage();
-                addMessage(`Upload failed: ${error.message}`, false, true);
+                showModalMessage(`Upload failed: ${error.message}`, true);
             }
         }
 
@@ -817,7 +844,7 @@
             const files = fileInput.files;
             
             if (files.length === 0) {
-                addMessage('Please select files to upload.', false, true);
+                showModalMessage('Please select files to upload.', true);
                 return;
             }
 
@@ -826,9 +853,6 @@
                 formData.append('files', file);
             }
 
-            closeUploadModal();
-            addLoadingMessage();
-
             try {
                 const response = await fetch('/upload', {
                     method: 'POST',
@@ -836,21 +860,23 @@
                 });
 
                 const data = await response.json();
-                removeLoadingMessage();
 
                 if (data.error) {
-                    addMessage(`Upload error: ${data.error}`, false, true);
+                    showModalMessage(`Upload error: ${data.error}`, true);
                 } else {
-                    addMessage(`Successfully uploaded ${files.length} document(s) to the knowledge base.`);
+                    showModalMessage(`Successfully uploaded ${files.length} document(s) to the knowledge base.`);
                     // Refresh documents list if settings panel is open
                     const panel = document.getElementById('settingsPanel');
                     if (!panel.classList.contains('hidden')) {
                         loadDocuments();
                     }
+                    // Auto-close modal after 2 seconds on success
+                    setTimeout(() => {
+                        closeUploadModal();
+                    }, 2000);
                 }
             } catch (error) {
-                removeLoadingMessage();
-                addMessage(`Upload failed: ${error.message}`, false, true);
+                showModalMessage(`Upload failed: ${error.message}`, true);
             }
         }
 
@@ -915,14 +941,21 @@
                     return;
                 }
                 
-                documentsList.innerHTML = data.documents.map(doc => `
-                    <div class="document-item">
-                        <div class="document-title">${doc.title}</div>
-                        <div class="document-meta">
-                            ${doc.chunk_count} chunks • Primary Key: ${doc.primary_key}
+                documentsList.innerHTML = data.documents.map(doc => {
+                    // Add defensive checks for undefined values
+                    const title = doc?.title || 'Untitled Document';
+                    const chunkCount = doc?.chunk_count || 0;
+                    const primaryKey = doc?.primary_key || 'unknown';
+                    
+                    return `
+                        <div class="document-item">
+                            <div class="document-title">${title}</div>
+                            <div class="document-meta">
+                                ${chunkCount} chunks • Primary Key: ${primaryKey}
+                            </div>
                         </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             } catch (error) {
                 console.error('Failed to load documents:', error);
                 document.getElementById('documentsList').innerHTML = 
@@ -938,14 +971,26 @@
                 return;
             }
             
-            ragSourcesDiv.innerHTML = sources.map((source, index) => `
-                <div class="rag-source">
-                    <div class="rag-source-text">${source.text.substring(0, 100)}${source.text.length > 100 ? '...' : ''}</div>
-                    <div class="rag-source-meta">
-                        Relevance: ${(1 - source.score).toFixed(3)} • Document: ${source.primary_key}
+            ragSourcesDiv.innerHTML = sources.map((source, index) => {
+                // Add defensive checks for undefined values
+                const text = source?.text || 'No text available';
+                const score = source?.score || 0;
+                const primaryKey = source?.primary_key || 'unknown';
+                
+                // Safe string operations
+                const displayText = typeof text === 'string' && text.length > 100 
+                    ? text.substring(0, 100) + '...' 
+                    : text;
+                
+                return `
+                    <div class="rag-source">
+                        <div class="rag-source-text">${displayText}</div>
+                        <div class="rag-source-meta">
+                            Relevance: ${(1 - score).toFixed(3)} • Document: ${primaryKey}
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // Focus on input when page loads and set up periodic status refresh

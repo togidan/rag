@@ -196,16 +196,27 @@ async def get_documents():
         # Group by primary_key to get unique documents
         documents_dict = {}
         for result in results:
-            pk = result.get("primary_key")
-            text = result.get("text", "")
+            # Add defensive checks for undefined values
+            pk = result.get("primary_key") if result else None
+            text = result.get("text", "") if result else ""
+            
+            # Skip if primary key is None/undefined
+            if pk is None:
+                continue
+                
+            # Ensure text is a string for safe operations
+            if not isinstance(text, str):
+                text = str(text) if text is not None else ""
             
             if pk not in documents_dict:
+                # Safe string slicing with checks
+                preview = text[:100] + "..." if len(text) > 100 else text
                 documents_dict[pk] = {
                     "primary_key": pk,
                     "title": f"Document {pk}",  # We'll improve this
                     "upload_date": "Unknown",  # We'll add timestamps later
                     "chunk_count": 0,
-                    "preview": text[:100] + "..." if len(text) > 100 else text
+                    "preview": preview
                 }
             documents_dict[pk]["chunk_count"] += 1
         
