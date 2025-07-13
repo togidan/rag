@@ -132,26 +132,224 @@
             background: #f8f9fa;
             border-top: 1px solid #e0e0e0;
             display: flex;
-            gap: 10px;
+            justify-content: center;
             align-items: center;
         }
 
-        .upload-input {
-            flex: 1;
-            padding: 8px 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 15px;
-            font-size: 14px;
-        }
-
-        .upload-button {
-            background: #28a745;
+        .add-docs-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
             border: none;
-            border-radius: 15px;
-            padding: 8px 15px;
+            border-radius: 25px;
+            padding: 12px 20px;
             cursor: pointer;
             font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
+        }
+
+        .add-docs-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        /* Modal Styles */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .tab-button:hover {
+            background: #e9ecef;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-file {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-file:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .file-info {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
         }
 
         .loading {
@@ -194,8 +392,7 @@
         </div>
         
         <div class="upload-container">
-            <input type="file" class="upload-input" id="fileInput" accept=".txt,.pdf,.doc,.docx" multiple>
-            <button class="upload-button" onclick="uploadFiles()">Upload Documents</button>
+            <button class="add-docs-button" onclick="openUploadModal()">📄 Add Documents</button>
         </div>
 
         <div class="chat-messages" id="chatMessages">
@@ -211,6 +408,49 @@
             <button class="send-button" id="sendButton" onclick="sendMessage()">
                 ➤
             </button>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-backdrop" id="uploadModal" onclick="closeUploadModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Add Documents to Knowledge Base</h3>
+                <button class="modal-close" onclick="closeUploadModal()">×</button>
+            </div>
+            
+            <div class="modal-tabs">
+                <button class="tab-button active" onclick="switchTab('text')">📝 Text Input</button>
+                <button class="tab-button" onclick="switchTab('file')">📁 File Upload</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Text Input Tab -->
+                <div class="tab-content active" id="textTab">
+                    <div class="form-group">
+                        <label for="documentTitle">Document Title</label>
+                        <input type="text" id="documentTitle" placeholder="Enter a title for this document..." class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="documentText">Document Content</label>
+                        <textarea id="documentText" placeholder="Paste or type your document content here..." class="form-textarea"></textarea>
+                    </div>
+                </div>
+                
+                <!-- File Upload Tab -->
+                <div class="tab-content" id="fileTab">
+                    <div class="form-group">
+                        <label for="fileInput">Select Files</label>
+                        <input type="file" id="fileInput" accept=".txt,.pdf,.doc,.docx" multiple class="form-file">
+                        <div class="file-info">Supported formats: .txt, .pdf, .doc, .docx</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                <button class="btn-primary" onclick="handleUpload()">Upload</button>
+            </div>
         </div>
     </div>
 
@@ -288,6 +528,78 @@
             }
         }
 
+        // Modal functionality
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            // Reset form
+            document.getElementById('documentTitle').value = '';
+            document.getElementById('documentText').value = '';
+            document.getElementById('fileInput').value = '';
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        async function handleUpload() {
+            const activeTab = document.querySelector('.tab-content.active').id;
+            
+            if (activeTab === 'textTab') {
+                await uploadText();
+            } else {
+                await uploadFiles();
+            }
+        }
+
+        async function uploadText() {
+            const title = document.getElementById('documentTitle').value.trim();
+            const text = document.getElementById('documentText').value.trim();
+            
+            if (!text) {
+                addMessage('Please enter some text to upload.', false, true);
+                return;
+            }
+
+            const documentTitle = title || 'Untitled Document';
+            closeUploadModal();
+            addLoadingMessage();
+
+            try {
+                const response = await fetch('/upload-text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: documentTitle,
+                        text: text
+                    })
+                });
+
+                const data = await response.json();
+                removeLoadingMessage();
+
+                if (data.error) {
+                    addMessage(`Upload error: ${data.error}`, false, true);
+                } else {
+                    addMessage(`Successfully uploaded "${documentTitle}" to the knowledge base.`);
+                }
+            } catch (error) {
+                removeLoadingMessage();
+                addMessage(`Upload failed: ${error.message}`, false, true);
+            }
+        }
+
         async function uploadFiles() {
             const fileInput = document.getElementById('fileInput');
             const files = fileInput.files;
@@ -302,6 +614,7 @@
                 formData.append('files', file);
             }
 
+            closeUploadModal();
             addLoadingMessage();
 
             try {
@@ -317,7 +630,6 @@
                     addMessage(`Upload error: ${data.error}`, false, true);
                 } else {
                     addMessage(`Successfully uploaded ${files.length} document(s) to the knowledge base.`);
-                    fileInput.value = '';
                 }
             } catch (error) {
                 removeLoadingMessage();
