@@ -13,9 +13,11 @@ import mmh3
 
 app = FastAPI()
 
+load_dotenv()
+
 # OpenAI client for embeddings
 openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-load_dotenv()
+
 # Milvus configuration
 MILVUS_URI = os.getenv("MILVUS_URI")
 MILVUS_TOKEN = os.getenv("MILVUS_TOKEN")
