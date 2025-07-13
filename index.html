@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG-Enhanced ChatGPT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+            height: 80vh;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-panel {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-panel.hidden {
+            display: none;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .settings-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.2s;
+        }
+
+        .settings-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .settings-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .settings-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .settings-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .settings-section:last-child {
+            border-bottom: none;
+        }
+
+        .settings-section h3 {
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #28a745;
+        }
+
+        .status-disconnected {
+            background: #dc3545;
+        }
+
+        .rag-source {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .rag-source-text {
+            color: #333;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .rag-source-meta {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .document-item {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .document-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .document-meta {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            font-size: 20px;
+        }
+
+        .send-button:hover {
+            transform: scale(1.05);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .upload-container {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .add-docs-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
+        }
+
+        .add-docs-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        /* Modal Styles */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-backdrop.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .tab-button.active {
+            background: white;
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .tab-button:hover {
+            background: #e9ecef;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-file {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-file:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .file-info {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .loading::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .settings-panel {
+                width: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+                height: auto;
+                min-height: 80vh;
+            }
+            
+            .settings-panel {
+                width: 100%;
+                height: 300px;
+            }
+            
+            .settings-panel.hidden {
+                display: none;
+            }
+            
+            .chat-container {
+                min-height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <span>RAG-Enhanced ChatGPT</span>
+                <button class="settings-toggle" onclick="toggleSettings()">⚙️</button>
+            </div>
+        
+        <div class="upload-container">
+            <button class="add-docs-button" onclick="openUploadModal()">📄 Add Documents</button>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message assistant">
+                <div class="message-content">
+                    Hello! I'm your RAG-enhanced ChatGPT assistant. You can upload documents above and I'll use them to provide more contextual answers to your questions.
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-input-container">
+            <input type="text" class="chat-input" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+            <button class="send-button" id="sendButton" onclick="sendMessage()">
+                ➤
+            </button>
+        </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-header">
+                System Settings
+            </div>
+            
+            <div class="settings-content">
+                <!-- RAG Sources Section -->
+                <div class="settings-section">
+                    <h3>📚 Current RAG Sources</h3>
+                    <div id="ragSources">
+                        <p style="color: #666; font-style: italic;">No sources retrieved yet. Send a message to see RAG sources.</p>
+                    </div>
+                </div>
+
+                <!-- System Status Section -->
+                <div class="settings-section">
+                    <h3>🔌 System Status</h3>
+                    <div id="systemStatus">
+                        <div style="margin-bottom: 10px;">
+                            <span class="status-indicator status-disconnected" id="milvusStatus"></span>
+                            <span>Milvus Database</span>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <span class="status-indicator status-disconnected" id="openaiStatus"></span>
+                            <span>OpenAI API</span>
+                        </div>
+                        <div style="color: #666; font-size: 14px;" id="statusDetails">
+                            Checking status...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documents Section -->
+                <div class="settings-section">
+                    <h3>📄 Uploaded Documents</h3>
+                    <div id="documentsList">
+                        <p style="color: #666; font-style: italic;">Loading documents...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-backdrop" id="uploadModal" onclick="closeUploadModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>Add Documents to Knowledge Base</h3>
+                <button class="modal-close" onclick="closeUploadModal()">×</button>
+            </div>
+            
+            <div class="modal-tabs">
+                <button class="tab-button active" onclick="switchTab('text')">📝 Text Input</button>
+                <button class="tab-button" onclick="switchTab('file')">📁 File Upload</button>
+            </div>
+            
+            <!-- Modal Message Area -->
+            <div id="modalMessage" style="display: none; padding: 15px; margin: 0 20px; border-radius: 10px; font-size: 14px;"></div>
+            
+            <div class="modal-body">
+                <!-- Text Input Tab -->
+                <div class="tab-content active" id="textTab">
+                    <div class="form-group">
+                        <label for="documentTitle">Document Title</label>
+                        <input type="text" id="documentTitle" placeholder="Enter a title for this document..." class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="documentText">Document Content</label>
+                        <textarea id="documentText" placeholder="Paste or type your document content here..." class="form-textarea"></textarea>
+                    </div>
+                </div>
+                
+                <!-- File Upload Tab -->
+                <div class="tab-content" id="fileTab">
+                    <div class="form-group">
+                        <label for="fileInput">Select Files</label>
+                        <input type="file" id="fileInput" accept=".txt,.pdf,.doc,.docx" multiple class="form-file">
+                        <div class="file-info">Supported formats: .txt, .pdf, .doc, .docx</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                <button class="btn-primary" onclick="handleUpload()">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        function addMessage(content, isUser = false, isError = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `message-content ${isError ? 'error' : ''}`;
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(contentDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addLoadingMessage() {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            messageDiv.id = 'loadingMessage';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content loading';
+            contentDiv.textContent = 'Thinking...';
+            
+            messageDiv.appendChild(contentDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeLoadingMessage() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            addMessage(message, true);
+            messageInput.value = '';
+            sendButton.disabled = true;
+            addLoadingMessage();
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                removeLoadingMessage();
+
+                if (data.error) {
+                    addMessage(`Error: ${data.error}`, false, true);
+                } else {
+                    addMessage(data.response);
+                    // Update RAG sources in settings panel
+                    if (data.rag_sources) {
+                        updateRagSources(data.rag_sources);
+                    }
+                }
+            } catch (error) {
+                removeLoadingMessage();
+                addMessage(`Network error: ${error.message}`, false, true);
+            } finally {
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        // Modal functionality
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+            // Clear any previous messages
+            hideModalMessage();
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            // Reset form
+            document.getElementById('documentTitle').value = '';
+            document.getElementById('documentText').value = '';
+            document.getElementById('fileInput').value = '';
+            // Clear modal message
+            hideModalMessage();
+        }
+
+        function showModalMessage(message, isError = false) {
+            const messageDiv = document.getElementById('modalMessage');
+            messageDiv.style.display = 'block';
+            messageDiv.textContent = message;
+            
+            if (isError) {
+                messageDiv.style.backgroundColor = '#f8d7da';
+                messageDiv.style.color = '#721c24';
+                messageDiv.style.border = '1px solid #f5c6cb';
+            } else {
+                messageDiv.style.backgroundColor = '#d4edda';
+                messageDiv.style.color = '#155724';
+                messageDiv.style.border = '1px solid #c3e6cb';
+            }
+        }
+
+        function hideModalMessage() {
+            document.getElementById('modalMessage').style.display = 'none';
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        async function handleUpload() {
+            const activeTab = document.querySelector('.tab-content.active').id;
+            
+            if (activeTab === 'textTab') {
+                await uploadText();
+            } else {
+                await uploadFiles();
+            }
+        }
+
+        async function uploadText() {
+            const title = document.getElementById('documentTitle').value.trim();
+            const text = document.getElementById('documentText').value.trim();
+            
+            if (!text) {
+                showModalMessage('Please enter some text to upload.', true);
+                return;
+            }
+
+            const documentTitle = title || 'Untitled Document';
+            
+            try {
+                const response = await fetch('/upload-text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: documentTitle,
+                        text: text
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showModalMessage(`Upload error: ${data.error}`, true);
+                } else {
+                    showModalMessage(`Successfully uploaded "${documentTitle}" to the knowledge base.`);
+                    // Refresh documents list if settings panel is open
+                    const panel = document.getElementById('settingsPanel');
+                    if (!panel.classList.contains('hidden')) {
+                        loadDocuments();
+                    }
+                    // Auto-close modal after 2 seconds on success
+                    setTimeout(() => {
+                        closeUploadModal();
+                    }, 2000);
+                }
+            } catch (error) {
+                showModalMessage(`Upload failed: ${error.message}`, true);
+            }
+        }
+
+        async function uploadFiles() {
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                showModalMessage('Please select files to upload.', true);
+                return;
+            }
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showModalMessage(`Upload error: ${data.error}`, true);
+                } else {
+                    showModalMessage(`Successfully uploaded ${files.length} document(s) to the knowledge base.`);
+                    // Refresh documents list if settings panel is open
+                    const panel = document.getElementById('settingsPanel');
+                    if (!panel.classList.contains('hidden')) {
+                        loadDocuments();
+                    }
+                    // Auto-close modal after 2 seconds on success
+                    setTimeout(() => {
+                        closeUploadModal();
+                    }, 2000);
+                }
+            } catch (error) {
+                showModalMessage(`Upload failed: ${error.message}`, true);
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Settings panel functionality
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                refreshSystemStatus();
+                loadDocuments();
+            }
+        }
+
+        async function refreshSystemStatus() {
+            try {
+                const response = await fetch('/status');
+                const status = await response.json();
+                
+                const milvusIndicator = document.getElementById('milvusStatus');
+                const openaiIndicator = document.getElementById('openaiStatus');
+                const statusDetails = document.getElementById('statusDetails');
+                
+                // Update Milvus status
+                milvusIndicator.className = 'status-indicator ' + 
+                    (status.milvus_connected ? 'status-connected' : 'status-disconnected');
+                
+                // Update OpenAI status
+                openaiIndicator.className = 'status-indicator ' + 
+                    (status.openai_connected ? 'status-connected' : 'status-disconnected');
+                
+                // Update details
+                statusDetails.innerHTML = `
+                    Collection exists: ${status.collection_exists ? 'Yes' : 'No'}<br>
+                    Total documents: ${status.total_documents || 0}
+                `;
+            } catch (error) {
+                console.error('Failed to refresh status:', error);
+                document.getElementById('statusDetails').textContent = 'Status check failed';
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch('/documents');
+                const data = await response.json();
+                const documentsList = document.getElementById('documentsList');
+                
+                if (data.error) {
+                    documentsList.innerHTML = `<p style="color: #dc3545;">${data.error}</p>`;
+                    return;
+                }
+                
+                if (!data.documents || data.documents.length === 0) {
+                    documentsList.innerHTML = '<p style="color: #666; font-style: italic;">No documents uploaded yet.</p>';
+                    return;
+                }
+                
+                documentsList.innerHTML = data.documents.map(doc => {
+                    // Add defensive checks for undefined values
+                    const title = doc?.title || 'Untitled Document';
+                    const chunkCount = doc?.chunk_count || 0;
+                    const primaryKey = doc?.primary_key || 'unknown';
+                    
+                    return `
+                        <div class="document-item">
+                            <div class="document-title">${title}</div>
+                            <div class="document-meta">
+                                ${chunkCount} chunks • Primary Key: ${primaryKey}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load documents:', error);
+                document.getElementById('documentsList').innerHTML = 
+                    '<p style="color: #dc3545;">Failed to load documents</p>';
+            }
+        }
+
+        function updateRagSources(sources) {
+            const ragSourcesDiv = document.getElementById('ragSources');
+            
+            if (!sources || sources.length === 0) {
+                ragSourcesDiv.innerHTML = '<p style="color: #666; font-style: italic;">No sources used for this response.</p>';
+                return;
+            }
+            
+            ragSourcesDiv.innerHTML = sources.map((source, index) => {
+                // Add defensive checks for undefined values
+                const text = source?.text || 'No text available';
+                const score = source?.score || 0;
+                const primaryKey = source?.primary_key || 'unknown';
+                
+                // Safe string operations
+                const displayText = typeof text === 'string' && text.length > 100 
+                    ? text.substring(0, 100) + '...' 
+                    : text;
+                
+                return `
+                    <div class="rag-source">
+                        <div class="rag-source-text">${displayText}</div>
+                        <div class="rag-source-meta">
+                            Relevance: ${(1 - score).toFixed(3)} • Document: ${primaryKey}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Focus on input when page loads and set up periodic status refresh
+        window.onload = function() {
+            messageInput.focus();
+            // Auto-refresh status every 30 seconds if settings panel is open
+            setInterval(() => {
+                const panel = document.getElementById('settingsPanel');
+                if (!panel.classList.contains('hidden')) {
+                    refreshSystemStatus();
+                }
+            }, 90000);
+        };
+    </script>
+</body>
+</html>
