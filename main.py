@@ -118,11 +118,100 @@ class TextUploadRequest(BaseModel):
     title: str
     text: str
 
+class SystemStatus(BaseModel):
+    milvus_connected: bool
+    collection_exists: bool
+    total_documents: int
+    openai_connected: bool
+
+class DocumentInfo(BaseModel):
+    primary_key: int
+    title: str
+    upload_date: str
+    chunk_count: int
+
 @app.get("/")
 async def read_index():
     with open("index.html", "r", encoding="utf-8") as f:
         content = f.read()
     return HTMLResponse(content=content)
+
+@app.get("/status")
+async def get_system_status():
+    """Get system status including Milvus connection and document count"""
+    try:
+        # Check Milvus connection
+        milvus_connected = milvus_client is not None
+        collection_exists = False
+        total_documents = 0
+        
+        if milvus_connected:
+            try:
+                collection_exists = milvus_client.has_collection(collection_name=COLLECTION_NAME)
+                if collection_exists:
+                    # Get document count (this is approximate since we have chunks)
+                    stats = milvus_client.get_collection_stats(collection_name=COLLECTION_NAME)
+                    total_documents = stats.get('row_count', 0)
+            except Exception as e:
+                print(f"Error checking collection: {e}")
+                milvus_connected = False
+        
+        # Test OpenAI connection
+        openai_connected = True
+        try:
+            # Quick test of OpenAI API
+            test_response = openai_client.embeddings.create(
+                model="text-embedding-3-large",
+                input="test"
+            )
+            openai_connected = len(test_response.data) > 0
+        except Exception as e:
+            print(f"OpenAI connection error: {e}")
+            openai_connected = False
+        
+        return SystemStatus(
+            milvus_connected=milvus_connected,
+            collection_exists=collection_exists,
+            total_documents=total_documents,
+            openai_connected=openai_connected
+        )
+    except Exception as e:
+        return {"error": f"Status check failed: {str(e)}"}
+
+@app.get("/documents")
+async def get_documents():
+    """Get list of uploaded documents with metadata"""
+    if not milvus_client:
+        return {"error": "Vector database not available"}
+    
+    try:
+        # Query all unique documents by primary_key
+        results = milvus_client.query(
+            collection_name=COLLECTION_NAME,
+            expr="primary_key >= 0",  # Get all documents
+            output_fields=["primary_key", "text"],
+            limit=1000  # Reasonable limit
+        )
+        
+        # Group by primary_key to get unique documents
+        documents_dict = {}
+        for result in results:
+            pk = result.get("primary_key")
+            text = result.get("text", "")
+            
+            if pk not in documents_dict:
+                documents_dict[pk] = {
+                    "primary_key": pk,
+                    "title": f"Document {pk}",  # We'll improve this
+                    "upload_date": "Unknown",  # We'll add timestamps later
+                    "chunk_count": 0,
+                    "preview": text[:100] + "..." if len(text) > 100 else text
+                }
+            documents_dict[pk]["chunk_count"] += 1
+        
+        return {"documents": list(documents_dict.values())}
+    except Exception as e:
+        return {"error": f"Failed to retrieve documents: {str(e)}"}
 
 def search_similar_documents(query: str, top_k: int = 3):
     if not milvus_client:
@@ -139,7 +228,7 @@ def search_similar_documents(query: str, top_k: int = 3):
             collection_name=COLLECTION_NAME,
             data=[query_embedding],
             limit=top_k,
-            output_fields=["text"]
+            output_fields=["text", "primary_key"]
         )
         
         # Extract relevant documents
@@ -148,7 +237,8 @@ def search_similar_documents(query: str, top_k: int = 3):
             for hit in result:
                 relevant_docs.append({
                     "text": hit.get("entity", {}).get("text", ""),
-                    "score": hit.get("distance", 0)
+                    "score": hit.get("distance", 0),
+                    "primary_key": hit.get("entity", {}).get("primary_key", "unknown")
                 })
         
         return relevant_docs
@@ -186,7 +276,17 @@ async def ask_chatgpt(request: ChatRequest):
             messages=messages,
             max_tokens=1000
         )
-        return {"response": response.choices[0].message.content}
+        return {
+            "response": response.choices[0].message.content,
+            "rag_sources": [
+                {
+                    "text": doc["text"],
+                    "score": doc["score"],
+                    "primary_key": doc.get("primary_key", "unknown")
+                }
+                for doc in relevant_docs
+            ]
+        }
     except Exception as e:
         return {"error": str(e)}
 
