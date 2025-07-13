@@ -996,13 +996,13 @@
         // Focus on input when page loads and set up periodic status refresh
         window.onload = function() {
             messageInput.focus();
-            // Auto-refresh status every 30 seconds if settings panel is open
+            // Auto-refresh status every 90 seconds if settings panel is open
             setInterval(() => {
                 const panel = document.getElementById('settingsPanel');
                 if (!panel.classList.contains('hidden')) {
                     refreshSystemStatus();
                 }
-            }, 30000);
+            }, 90000);
         };
     </script>
 </body>

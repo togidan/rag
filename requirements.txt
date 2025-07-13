@@ -44,6 +44,7 @@ pydantic_core==2.33.2
 pymilvus==2.5.12
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
+pydantic-settings==2.8.2
 pytz==2025.2
 PyYAML==6.0.2
 regex==2024.11.6
@@ -68,3 +69,10 @@ tzdata==2025.2
 ujson==5.10.0
 urllib3==2.5.0
 uvicorn==0.35.0
+
+# Testing dependencies
+pytest==8.3.5
+pytest-asyncio==0.24.5
+pytest-mock==3.14.0
+httpx==0.28.1
+pytest-cov==6.0.0

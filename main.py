@@ -189,8 +189,8 @@ async def get_documents():
         results = milvus_client.query(
             collection_name=COLLECTION_NAME,
             expr="primary_key >= 0",  # Get all documents
-            output_fields=["primary_key", "text"],
-            limit=1000  # Reasonable limit
+            output_fields=["primary_key", "text"]
+            # limit=1000  # Reasonable limit
         )
         
         # Group by primary_key to get unique documents
