@@ -4,10 +4,11 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 import openai
 import os
-from pymilvus import MilvusClient, DataType
+from pymilvus import MilvusClient, DataType, CollectionSchema, FieldSchema
 import numpy as np
 from typing import List
 import io
+import mmh3
 
 app = FastAPI()
 
@@ -18,7 +19,30 @@ openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MILVUS_URI = "https://in03-eac7c2985174613.serverless.gcp-us-west1.cloud.zilliz.com"
 MILVUS_TOKEN = "97b4cbdb86fc8864a00950a47f22f69566f241573781f5c9294a7ffd6e28eba82806d5777eb7320c1c43a45e1a608cf8034301d6"
 COLLECTION_NAME = "prompt_engineer_test"
-DIMENSION = 1536  # text-embedding-3-small dimension
+DIMENSION = 3072  # text-embedding-3-large dimension
+
+def generate_text_hash(text: str, attempt: int = 0) -> int:
+    """Generate a consistent INT64 hash for text using MurmurHash3"""
+    # Use MurmurHash3 to generate a 32-bit hash, with attempt-based seed for collision handling
+    seed = 42 + attempt  # Modify seed if collision detected
+    hash_32 = mmh3.hash(text, seed=seed)  # Use seed for consistency
+    # Convert to positive 64-bit integer range
+    hash_64 = abs(hash_32) % (2**63 - 1)  # Ensure it fits in INT64 range
+    return hash_64
+
+def generate_unique_hash(text: str, existing_hashes: set) -> int:
+    """Generate a unique hash, handling collisions by trying different seeds"""
+    attempt = 0
+    max_attempts = 100  # Prevent infinite loops
+    
+    while attempt < max_attempts:
+        hash_value = generate_text_hash(text, attempt)
+        if hash_value not in existing_hashes:
+            return hash_value
+        attempt += 1
+    
+    # If we can't find a unique hash after max attempts, raise an error
+    raise ValueError(f"Could not generate unique hash for text after {max_attempts} attempts")
 
 # Initialize Milvus client
 def init_milvus():
@@ -30,12 +54,27 @@ def init_milvus():
         
         # Check if collection exists, create if not
         if not client.has_collection(collection_name=COLLECTION_NAME):
+            # Define explicit schema
+            fields = [
+                FieldSchema(name="primary_key", dtype=DataType.INT64, is_primary=True, auto_id=False),
+                FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535),
+                FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=DIMENSION)
+            ]
+            schema = CollectionSchema(fields, description="Document collection for RAG")
+            
             client.create_collection(
                 collection_name=COLLECTION_NAME,
-                dimension=DIMENSION,
-                metric_type="COSINE",
-                auto_id=True
+                schema=schema,
+                index_params={
+                    "field_name": "vector",
+                    "index_type": "IVF_FLAT",
+                    "metric_type": "COSINE",
+                    "params": {"nlist": 1024}
+                }
             )
+            print(f"Created collection '{COLLECTION_NAME}' with explicit schema")
+        else:
+            print(f"Collection '{COLLECTION_NAME}' already exists")
         
         return client
     except Exception as e:
@@ -46,13 +85,15 @@ def init_milvus():
 milvus_client = init_milvus()
 
 def get_openai_embedding(text: str) -> List[float]:
-    """Generate embeddings using OpenAI's text-embedding-3-small model"""
+    """Generate embeddings using OpenAI's text-embedding-3-large model"""
     try:
         response = openai_client.embeddings.create(
-            model="text-embedding-3-small",
+            model="text-embedding-3-large",
             input=text
         )
-        return response.data[0].embedding
+        embedding = response.data[0].embedding
+        # Ensure all values are native Python floats
+        return [float(x) for x in embedding]
     except Exception as e:
         print(f"Error generating embedding: {e}")
         return []
@@ -61,10 +102,11 @@ def get_openai_embeddings_batch(texts: List[str]) -> List[List[float]]:
     """Generate embeddings for multiple texts in batch"""
     try:
         response = openai_client.embeddings.create(
-            model="text-embedding-3-small",
+            model="text-embedding-3-large",
             input=texts
         )
-        return [data.embedding for data in response.data]
+        # Ensure all values are native Python floats
+        return [[float(x) for x in data.embedding] for data in response.data]
     except Exception as e:
         print(f"Error generating batch embeddings: {e}")
         return []
@@ -97,7 +139,7 @@ def search_similar_documents(query: str, top_k: int = 3):
             collection_name=COLLECTION_NAME,
             data=[query_embedding],
             limit=top_k,
-            output_fields=["text", "filename"]
+            output_fields=["text"]
         )
         
         # Extract relevant documents
@@ -106,7 +148,6 @@ def search_similar_documents(query: str, top_k: int = 3):
             for hit in result:
                 relevant_docs.append({
                     "text": hit.get("entity", {}).get("text", ""),
-                    "filename": hit.get("entity", {}).get("filename", ""),
                     "score": hit.get("distance", 0)
                 })
         
@@ -126,7 +167,7 @@ async def ask_chatgpt(request: ChatRequest):
         if relevant_docs:
             context = "\n\nRelevant information from your knowledge base:\n"
             for i, doc in enumerate(relevant_docs, 1):
-                context += f"\n{i}. From {doc['filename']}:\n{doc['text']}\n"
+                context += f"\n{i}. {doc['text']}\n"
         
         # Enhanced system message with context
         system_message = "You are a helpful assistant. Use the provided context information to enhance your responses when relevant."
@@ -183,12 +224,10 @@ async def upload_documents(files: List[UploadFile] = File(...)):
             
             # Generate embeddings and prepare data for insertion
             texts = []
-            filenames = []
             
             for chunk in chunks:
                 if chunk.strip():  # Skip empty chunks
                     texts.append(chunk)
-                    filenames.append(file.filename)
             
             # Generate embeddings in batch for efficiency
             if texts:
@@ -205,19 +244,40 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 
                 # Prepare data for MilvusClient insert
                 if embeddings and len(texts) == len(embeddings):
-                    data = []
-                    for i in range(len(texts)):
-                        data.append({
-                            "text": texts[i],
-                            "vector": embeddings[i],
-                            "filename": filenames[i]
-                        })
+                    # Validate embedding dimensions and data types
+                    valid_embeddings = []
+                    valid_texts = []
                     
-                    # Insert into Milvus using client
-                    milvus_client.insert(
-                        collection_name=COLLECTION_NAME,
-                        data=data
-                    )
+                    for i, (text, embedding) in enumerate(zip(texts, embeddings)):
+                        if len(embedding) != DIMENSION:
+                            print(f"Warning: Skipping embedding {i} - dimension {len(embedding)}, expected {DIMENSION}")
+                            continue
+                        # Ensure all values are native Python floats
+                        validated_embedding = [float(x) for x in embedding]
+                        valid_embeddings.append(validated_embedding)
+                        valid_texts.append(text)
+                    
+                    if valid_embeddings and valid_texts:
+                        # Generate one primary key for the entire upload based on filename
+                        upload_primary_key = generate_text_hash(file.filename)
+                        
+                        data = {
+                            "primary_key": upload_primary_key,
+                            "text": valid_texts,
+                            "vector": valid_embeddings[0]
+                        }
+                        
+                        print(f"Inserting {len(valid_texts)} chunks into Milvus")
+                        print(f"Data structure: text={type(valid_texts)} with {len(valid_texts)} items, vector={type(valid_embeddings)} with {len(valid_embeddings)} items")
+                        
+                        # Insert into Milvus using client
+                        milvus_client.insert(
+                            collection_name=COLLECTION_NAME,
+                            data=data
+                        )
+                        print(f"Successfully inserted data into Milvus")
+                    else:
+                        print("Warning: No valid embeddings to insert")
                     
                     uploaded_files.append({
                         "filename": file.filename,
@@ -245,14 +305,13 @@ async def upload_text(request: TextUploadRequest):
         # Chunk the text
         chunks = chunk_text(text)
         
+        
         # Generate embeddings and prepare data for insertion
         texts = []
-        filenames = []
         
         for chunk in chunks:
             if chunk.strip():  # Skip empty chunks
                 texts.append(chunk)
-                filenames.append(filename)
         
         # Generate embeddings in batch for efficiency
         if texts:
@@ -266,27 +325,50 @@ async def upload_text(request: TextUploadRequest):
                     embedding = get_openai_embedding(text_chunk)
                     if embedding:
                         embeddings.append(embedding)
-            
+                 
             # Prepare data for MilvusClient insert
             if embeddings and len(texts) == len(embeddings):
-                data = []
-                for i in range(len(texts)):
-                    data.append({
-                        "text": texts[i],
-                        "vector": embeddings[i],
-                        "filename": filenames[i]
-                    })
+                # Validate embedding dimensions and data types
+                valid_embeddings = []
+                valid_texts = []
                 
-                # Insert into Milvus using client
-                milvus_client.insert(
-                    collection_name=COLLECTION_NAME,
-                    data=data
-                )
+                for i, (text, embedding) in enumerate(zip(texts, embeddings)):
+                    if len(embedding) != DIMENSION:
+                        print(f"Warning: Skipping embedding {i} - dimension {len(embedding)}, expected {DIMENSION}")
+                        continue
+                    # Ensure all values are native Python floats
+                    validated_embedding = [float(x) for x in embedding]
+                    valid_embeddings.append(validated_embedding)
+                    valid_texts.append(text)
                 
-                return {
-                    "message": f"Successfully uploaded text document '{filename}'",
-                    "chunks": len(texts)
-                }
+                if valid_embeddings and valid_texts:
+                    # Generate one primary key for the entire upload based on title
+                    upload_primary_key = generate_text_hash(filename)
+                    
+                    data = {
+                        "primary_key": upload_primary_key,
+                        "text": valid_texts,
+                        "vector": valid_embeddings[0]
+                    }
+                    
+                    print(f"Inserting {len(valid_texts)} chunks into Milvus")
+                    print(f"Data structure: text={type(valid_texts)} with {len(valid_texts)} items, vector={type(valid_embeddings)} with {len(valid_embeddings)} items")
+                    print(valid_texts)
+                    print(data)
+                    
+                    # Insert into Milvus using client
+                    milvus_client.insert(
+                        collection_name=COLLECTION_NAME,
+                        data=data
+                    )
+                    print(f"Successfully inserted data into Milvus")
+                    
+                    return {
+                        "message": f"Successfully uploaded text document '{filename}'",
+                        "chunks": len(valid_texts)
+                    }
+                else:
+                    return {"error": "No valid embeddings after validation"}
             else:
                 return {"error": "Failed to generate embeddings for the text"}
         else:
