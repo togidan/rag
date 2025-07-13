@@ -447,8 +447,6 @@ async def upload_text(request: TextUploadRequest):
                 
                 for i, (text, embedding) in enumerate(zip(texts, embeddings)):
                     if len(embedding) != DIMENSION:
-                        print(len(embedding))
-                        print(DIMENSION)
                         print(f"Warning: Skipping embedding {i} - dimension {len(embedding)}, expected {DIMENSION}")
                         continue
                     # Ensure all values are native Python floats
@@ -468,9 +466,7 @@ async def upload_text(request: TextUploadRequest):
                     
                     print(f"Inserting {len(valid_texts)} chunks into Milvus")
                     print(f"Data structure: text={type(valid_texts)} with {len(valid_texts)} items, vector={type(valid_embeddings)} with {len(valid_embeddings)} items")
-                    print(valid_texts)
-                    print(data)
-                    
+                   
                     # Insert into Milvus using client
                     milvus_client.insert(
                         collection_name=COLLECTION_NAME,
